@@ -1,0 +1,44 @@
+# Dependencies & Package Managers
+node_modules/
+.npm
+.yarn
+
+# Python Virtual Environments (Root & Backend)
+venv/
+.venv/
+env/
+backend/venv/
+backend/env/
+
+# Neural net outputs & local caches
+backend/outputs/
+.expo/
+dist/
+web-build/
+expo-env.d.ts
+
+# Python cache & build files
+__pycache__/
+*.pyc
+*.pyo
+*.pyd
+.pytest_cache/
+backend/__pycache__/
+backend/app/__pycache__/
+
+# IDEs & System files
+.vscode/
+.idea/
+.DS_Store
+Thumbs.db
+*.pem
+*.key
+
+# Local environment & secret files
+.env
+.env.local
+.env.development.local
+.env.test.local
+.env.production.local
+.env.*
+apps/mobile/.env

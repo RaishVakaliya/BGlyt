@@ -6,6 +6,7 @@ import {
   Pressable,
   ScrollView,
   useWindowDimensions,
+  ActivityIndicator,
 } from "react-native";
 import {
   SafeAreaView,
@@ -24,6 +25,7 @@ import Animated, {
 } from "react-native-reanimated";
 import * as ImagePicker from "expo-image-picker";
 import { useBGRemovalStore } from "../store";
+import { useBackgroundRemoval } from "../hooks";
 
 export default function HomeScreen() {
   const { width } = useWindowDimensions();
@@ -45,7 +47,10 @@ export default function HomeScreen() {
     setStatus,
     setError,
     reset,
+    result,
   } = useBGRemovalStore();
+
+  const removeBackgroundMutation = useBackgroundRemoval();
 
   const handleReset = () => {
     reset();
@@ -275,19 +280,53 @@ export default function HomeScreen() {
               {sourceImage ? (
                 <View className="w-full flex-1 justify-between py-2">
                   <View className="w-full h-80 rounded-2xl overflow-hidden bg-slate-100 border border-slate-200/80 relative shadow-sm">
-                    <Image
-                      source={sourceImage.uri}
-                      style={[StyleSheet.absoluteFill, { opacity: 0.4 }]}
-                      contentFit="cover"
-                      blurRadius={20}
-                    />
+                    {result ? (
+                      <View className="w-full h-full justify-center items-center relative">
+                        <View className="absolute inset-0 bg-slate-100/50 flex-row flex-wrap">
+                          {Array.from({ length: 80 }).map((_, i) => (
+                            <View
+                              key={i}
+                              style={{ width: 24, height: 24 }}
+                              className={i % 2 === 0 ? "bg-slate-200/50" : "bg-transparent"}
+                            />
+                          ))}
+                        </View>
+                        <Image
+                          source={result.resultUri}
+                          style={{ width: "100%", height: "100%" }}
+                          contentFit="contain"
+                          transition={300}
+                        />
+                      </View>
+                    ) : (
+                      <>
+                        <Image
+                          source={sourceImage.uri}
+                          style={[StyleSheet.absoluteFill, { opacity: 0.4 }]}
+                          contentFit="cover"
+                          blurRadius={20}
+                        />
 
-                    <Image
-                      source={sourceImage.uri}
-                      style={{ width: "100%", height: "100%" }}
-                      contentFit="contain"
-                      transition={300}
-                    />
+                        <Image
+                          source={sourceImage.uri}
+                          style={{ width: "100%", height: "100%" }}
+                          contentFit="contain"
+                          transition={300}
+                        />
+                      </>
+                    )}
+
+                    {status === "processing" && (
+                      <View className="absolute inset-0 bg-black/60 items-center justify-center z-20 rounded-2xl">
+                        <ActivityIndicator size="large" color="#10b981" />
+                        <Text className="text-white text-sm font-bold mt-4 tracking-wide text-center">
+                          Removing Background...
+                        </Text>
+                        <Text className="text-white/60 text-xs mt-1 text-center">
+                          AI is working its magic
+                        </Text>
+                      </View>
+                    )}
 
                     <Pressable
                       onPress={handleReset}
@@ -385,23 +424,41 @@ export default function HomeScreen() {
                   <View className="w-full mt-4 flex-row items-center space-x-3 gap-2">
                     <Pressable
                       onPress={() => {
-                        setStatus("processing");
+                        if (sourceImage) {
+                          removeBackgroundMutation.mutate(sourceImage);
+                        }
                       }}
-                      className="flex-1 bg-emerald-500 py-3.5 px-3 rounded-2xl flex-row items-center justify-center shadow-md shadow-emerald-500/10 active:bg-emerald-600 active:scale-[0.98] transition-all"
+                      disabled={status === "processing" || status === "done" || !sourceImage}
+                      className={`flex-1 py-3.5 px-3 rounded-2xl flex-row items-center justify-center shadow-md active:scale-[0.98] transition-all ${
+                        status === "done"
+                          ? "bg-emerald-600"
+                          : status === "processing"
+                            ? "bg-emerald-400"
+                            : "bg-emerald-500 shadow-emerald-500/10 active:bg-emerald-600"
+                      }`}
                     >
-                      <Feather
-                        name="scissors"
-                        size={16}
-                        color="white"
-                        className="mr-2"
-                      />
+                      {status === "processing" ? (
+                        <ActivityIndicator size="small" color="white" className="mr-2" />
+                      ) : (
+                        <Feather
+                          name={status === "done" ? "check" : "scissors"}
+                          size={16}
+                          color="white"
+                          className="mr-2"
+                        />
+                      )}
                       <Text className="text-white text-[13px] font-extrabold tracking-wide text-center">
-                        Remove BG
+                        {status === "done"
+                          ? "Background Removed"
+                          : status === "processing"
+                            ? "Removing BG..."
+                            : "Remove BG"}
                       </Text>
                     </Pressable>
 
                     <Pressable
                       onPress={() => setShowMetadata(!showMetadata)}
+                      disabled={status === "processing"}
                       className={`w-12 h-12 rounded-2xl flex items-center justify-center active:scale-[0.95] transition-all ${
                         showMetadata
                           ? "bg-emerald-500 shadow-md shadow-emerald-500/10"
@@ -483,13 +540,16 @@ export default function HomeScreen() {
             <Animated.View style={animatedGalleryBtn} className="flex-1">
               <Pressable
                 onPress={handleSelectFromGallery}
+                disabled={status === "processing"}
                 onPressIn={() => {
                   galleryScale.value = withSpring(0.97);
                 }}
                 onPressOut={() => {
                   galleryScale.value = withSpring(1);
                 }}
-                className="bg-emerald-500 py-3.5 px-3 rounded-2xl flex-row items-center justify-center shadow-md shadow-emerald-500/10 active:bg-emerald-600"
+                className={`bg-emerald-500 py-3.5 px-3 rounded-2xl flex-row items-center justify-center shadow-md shadow-emerald-500/10 active:bg-emerald-600 ${
+                  status === "processing" ? "opacity-50" : ""
+                }`}
               >
                 <Feather
                   name="image"
@@ -506,13 +566,16 @@ export default function HomeScreen() {
             <Animated.View style={animatedCameraBtn} className="flex-1">
               <Pressable
                 onPress={handleOpenCamera}
+                disabled={status === "processing"}
                 onPressIn={() => {
                   cameraScale.value = withSpring(0.97);
                 }}
                 onPressOut={() => {
                   cameraScale.value = withSpring(1);
                 }}
-                className="border border-emerald-500 bg-white py-3.5 px-3 rounded-2xl flex-row items-center justify-center active:bg-slate-50/50"
+                className={`border border-emerald-500 bg-white py-3.5 px-3 rounded-2xl flex-row items-center justify-center active:bg-slate-50/50 ${
+                  status === "processing" ? "opacity-50" : ""
+                }`}
               >
                 <Feather
                   name="camera"

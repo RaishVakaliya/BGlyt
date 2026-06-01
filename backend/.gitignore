@@ -1,0 +1,27 @@
+# Virtual environment
+venv/
+.venv/
+env/
+
+# Neural net temporary outputs cache
+outputs/
+
+# Python cache & compiler files
+__pycache__/
+*.pyc
+*.pyo
+*.pyd
+.pytest_cache/
+.coverage
+htmlcov/
+
+# Local configuration & secrets
+.env
+.env.local
+.env.*
+
+# IDEs & System files
+.vscode/
+.idea/
+.DS_Store
+Thumbs.db
