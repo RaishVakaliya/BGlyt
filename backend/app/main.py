@@ -42,7 +42,7 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
-MAX_FILE_SIZE = 10 * 1024 * 1024
+MAX_FILE_SIZE = 15 * 1024 * 1024
 ALLOWED_MIME_TYPES = {
     "image/jpeg",
     "image/jpg",

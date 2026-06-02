@@ -7,7 +7,11 @@ import {
   ScrollView,
   useWindowDimensions,
   ActivityIndicator,
+  Alert,
 } from "react-native";
+import * as FileSystem from "expo-file-system/legacy";
+import * as MediaLibrary from "expo-media-library";
+import * as Sharing from "expo-sharing";
 import {
   SafeAreaView,
   useSafeAreaInsets,
@@ -55,6 +59,85 @@ export default function HomeScreen() {
   const handleReset = () => {
     reset();
     setShowMetadata(false);
+  };
+
+  const [isSaving, setIsSaving] = React.useState(false);
+
+  const handleDownload = async () => {
+    if (!result || isSaving) return;
+    try {
+      setIsSaving(true);
+      // Passing true requests writeOnly permission, avoiding READ_MEDIA_AUDIO and other read permissions on Android 13+
+      const { status: permissionStatus } =
+        await MediaLibrary.requestPermissionsAsync(true);
+      if (permissionStatus !== "granted") {
+        Alert.alert(
+          "Permission Required",
+          "Permission to access the media library is needed to save the processed image.",
+        );
+        setIsSaving(false);
+        return;
+      }
+
+      const filename = `${FileSystem.documentDirectory}bglyt_${Date.now()}.png`;
+      const base64Data = result.resultUri;
+      const base64Code = base64Data.includes("base64,")
+        ? base64Data.split("base64,")[1]
+        : base64Data;
+
+      await FileSystem.writeAsStringAsync(filename, base64Code, {
+        encoding: FileSystem.EncodingType.Base64,
+      });
+
+      await MediaLibrary.saveToLibraryAsync(filename);
+      Alert.alert(
+        "Downloaded Successfully!",
+        "The transparent PNG has been saved to your photo gallery.",
+      );
+    } catch (err: any) {
+      console.error("Error saving image:", err);
+      Alert.alert(
+        "Download Failed",
+        err?.message || "An unexpected error occurred while saving the image.",
+      );
+    } finally {
+      setIsSaving(false);
+    }
+  };
+
+  const handleShare = async () => {
+    if (!result) return;
+    try {
+      // Create a temporary cache file path to share the physical PNG file
+      const tempPath = `${FileSystem.cacheDirectory || FileSystem.documentDirectory}bglyt_share_${Date.now()}.png`;
+      const base64Data = result.resultUri;
+      const base64Code = base64Data.includes("base64,")
+        ? base64Data.split("base64,")[1]
+        : base64Data;
+
+      await FileSystem.writeAsStringAsync(tempPath, base64Code, {
+        encoding: FileSystem.EncodingType.Base64,
+      });
+
+      if (await Sharing.isAvailableAsync()) {
+        await Sharing.shareAsync(tempPath, {
+          mimeType: "image/png",
+          dialogTitle: "Share your transparent image",
+          UTI: "public.png",
+        });
+      } else {
+        Alert.alert(
+          "Sharing Unavailable",
+          "Sharing is not supported on this platform.",
+        );
+      }
+    } catch (err: any) {
+      console.error("Error sharing transparent PNG:", err);
+      Alert.alert(
+        "Share Failed",
+        err?.message || "An unexpected error occurred while sharing the image.",
+      );
+    }
   };
 
   useEffect(() => {
@@ -134,12 +217,36 @@ export default function HomeScreen() {
       }
 
       const asset = result.assets[0];
+      let fileSize = asset.fileSize;
+
+      // Robust fallback to check file size from storage if missing from ImagePicker metadata
+      if (!fileSize) {
+        try {
+          const fileInfo = await FileSystem.getInfoAsync(asset.uri);
+          if (fileInfo.exists) {
+            fileSize = fileInfo.size;
+          }
+        } catch (infoErr) {
+          console.log("Error getting file size info:", infoErr);
+        }
+      }
+
+      const MAX_FILE_SIZE = 15 * 1024 * 1024; // 15 MB
+      if (fileSize && fileSize > MAX_FILE_SIZE) {
+        Alert.alert(
+          "File Too Large",
+          `The selected image is ${(fileSize / (1024 * 1024)).toFixed(1)} MB. The maximum supported file size is 15 MB. Please select a smaller image.`
+        );
+        setStatus(sourceImage ? "done" : "idle");
+        return;
+      }
+
       setSourceImage({
         uri: asset.uri,
         width: asset.width,
         height: asset.height,
         mimeType: asset.mimeType,
-        fileSize: asset.fileSize,
+        fileSize: fileSize || asset.fileSize,
         fileName: asset.fileName || "gallery_photo.jpg",
       });
     } catch (err: any) {
@@ -185,12 +292,36 @@ export default function HomeScreen() {
       }
 
       const asset = result.assets[0];
+      let fileSize = asset.fileSize;
+
+      // Robust fallback to check file size from storage if missing from ImagePicker metadata
+      if (!fileSize) {
+        try {
+          const fileInfo = await FileSystem.getInfoAsync(asset.uri);
+          if (fileInfo.exists) {
+            fileSize = fileInfo.size;
+          }
+        } catch (infoErr) {
+          console.log("Error getting file size info:", infoErr);
+        }
+      }
+
+      const MAX_FILE_SIZE = 15 * 1024 * 1024; // 15 MB
+      if (fileSize && fileSize > MAX_FILE_SIZE) {
+        Alert.alert(
+          "File Too Large",
+          `The selected image is ${(fileSize / (1024 * 1024)).toFixed(1)} MB. The maximum supported file size is 15 MB. Please select a smaller image.`
+        );
+        setStatus(sourceImage ? "done" : "idle");
+        return;
+      }
+
       setSourceImage({
         uri: asset.uri,
         width: asset.width,
         height: asset.height,
         mimeType: asset.mimeType,
-        fileSize: asset.fileSize,
+        fileSize: fileSize || asset.fileSize,
         fileName: asset.fileName || "camera_photo.jpg",
       });
     } catch (err: any) {
@@ -222,19 +353,16 @@ export default function HomeScreen() {
           paddingBottom: insets.bottom + 24,
         }}
       >
-        <View className="flex-1 px-6 justify-between">
-          <View className="flex-row justify-between items-center py-2">
-            <View className="h-14 justify-center">
+        <View className="flex-1 justify-between">
+          <View className="items-center">
+            <View className="h-14 justify-center w-full max-w-md">
               <Image
                 source={require("../assets/logo.svg")}
-                style={{ width: 370, height: 115 }}
+                style={{ width: "100%", aspectRatio: 370 / 115 }}
                 contentFit="contain"
                 transition={200}
               />
             </View>
-            <Pressable className="w-10 h-10 items-center justify-center bg-emerald-50 rounded-full active:bg-emerald-100 transition-colors">
-              <Feather name="info" size={20} color="#059669" />
-            </Pressable>
           </View>
 
           <View className="mt-4 mb-6">
@@ -287,7 +415,11 @@ export default function HomeScreen() {
                             <View
                               key={i}
                               style={{ width: 24, height: 24 }}
-                              className={i % 2 === 0 ? "bg-slate-200/50" : "bg-transparent"}
+                              className={
+                                i % 2 === 0
+                                  ? "bg-slate-200/50"
+                                  : "bg-transparent"
+                              }
                             />
                           ))}
                         </View>
@@ -422,39 +554,82 @@ export default function HomeScreen() {
                   )}
 
                   <View className="w-full mt-4 flex-row items-center space-x-3 gap-2">
-                    <Pressable
-                      onPress={() => {
-                        if (sourceImage) {
-                          removeBackgroundMutation.mutate(sourceImage);
-                        }
-                      }}
-                      disabled={status === "processing" || status === "done" || !sourceImage}
-                      className={`flex-1 py-3.5 px-3 rounded-2xl flex-row items-center justify-center shadow-md active:scale-[0.98] transition-all ${
-                        status === "done"
-                          ? "bg-emerald-600"
-                          : status === "processing"
+                    {status === "done" ? (
+                      <>
+                        <Pressable
+                          onPress={handleDownload}
+                          disabled={isSaving}
+                          className="flex-1 bg-emerald-500 py-3.5 px-3 rounded-2xl flex-row items-center justify-center shadow-md shadow-emerald-500/10 active:scale-[0.98] transition-all disabled:opacity-50"
+                        >
+                          {isSaving ? (
+                            <ActivityIndicator
+                              size="small"
+                              color="white"
+                              className="mr-2"
+                            />
+                          ) : (
+                            <Feather
+                              name="download"
+                              size={16}
+                              color="white"
+                              className="mr-2"
+                            />
+                          )}
+                          <Text className="text-white text-[13px] font-extrabold tracking-wide text-center">
+                            {isSaving ? "Saving..." : "Download"}
+                          </Text>
+                        </Pressable>
+
+                        <Pressable
+                          onPress={handleShare}
+                          className="flex-1 border border-emerald-500 bg-white py-3.5 px-3 rounded-2xl flex-row items-center justify-center active:bg-slate-50 active:scale-[0.98] transition-all"
+                        >
+                          <Feather
+                            name="share-2"
+                            size={16}
+                            color="#059669"
+                            className="mr-2"
+                          />
+                          <Text className="text-emerald-600 text-[13px] font-extrabold tracking-wide text-center">
+                            Share
+                          </Text>
+                        </Pressable>
+                      </>
+                    ) : (
+                      <Pressable
+                        onPress={() => {
+                          if (sourceImage) {
+                            removeBackgroundMutation.mutate(sourceImage);
+                          }
+                        }}
+                        disabled={status === "processing" || !sourceImage}
+                        className={`flex-1 py-3.5 px-3 rounded-2xl flex-row items-center justify-center shadow-md active:scale-[0.98] transition-all ${
+                          status === "processing"
                             ? "bg-emerald-400"
                             : "bg-emerald-500 shadow-emerald-500/10 active:bg-emerald-600"
-                      }`}
-                    >
-                      {status === "processing" ? (
-                        <ActivityIndicator size="small" color="white" className="mr-2" />
-                      ) : (
-                        <Feather
-                          name={status === "done" ? "check" : "scissors"}
-                          size={16}
-                          color="white"
-                          className="mr-2"
-                        />
-                      )}
-                      <Text className="text-white text-[13px] font-extrabold tracking-wide text-center">
-                        {status === "done"
-                          ? "Background Removed"
-                          : status === "processing"
+                        }`}
+                      >
+                        {status === "processing" ? (
+                          <ActivityIndicator
+                            size="small"
+                            color="white"
+                            className="mr-2"
+                          />
+                        ) : (
+                          <Feather
+                            name="scissors"
+                            size={16}
+                            color="white"
+                            className="mr-2"
+                          />
+                        )}
+                        <Text className="text-white text-[13px] font-extrabold tracking-wide text-center">
+                          {status === "processing"
                             ? "Removing BG..."
                             : "Remove BG"}
-                      </Text>
-                    </Pressable>
+                        </Text>
+                      </Pressable>
+                    )}
 
                     <Pressable
                       onPress={() => setShowMetadata(!showMetadata)}
@@ -475,119 +650,79 @@ export default function HomeScreen() {
                 </View>
               ) : (
                 <>
-                  <View className="items-center justify-center flex-1 my-6">
+                  <Pressable
+                    onPress={handleSelectFromGallery}
+                    className="items-center justify-center flex-1 my-6 active:opacity-75"
+                  >
                     <Animated.View style={animatedFloatIcon} className="mb-4">
                       <View className="w-16 h-16 bg-emerald-500 items-center justify-center rounded-2xl shadow-md shadow-emerald-500/20">
                         <Feather name="upload-cloud" size={28} color="white" />
                       </View>
                     </Animated.View>
-                    <Text className="text-base font-semibold text-slate-800">
+                    <Text selectable className="text-base font-semibold text-slate-800">
                       Select an image file
                     </Text>
                     <Text className="text-xs text-slate-400 mt-1">
-                      Supports PNG, JPEG or WEBP up to 10MB
+                      Supports PNG, JPEG or WEBP up to 15MB
                     </Text>
-                  </View>
+                  </Pressable>
 
-                  <View className="w-full bg-white/80 border border-slate-100/80 rounded-2xl p-3 flex-row items-center justify-between">
-                    <View className="flex-1 items-center py-2 px-1 border-r border-slate-100">
-                      <View className="w-10 h-10 bg-slate-100 rounded-lg items-center justify-center mb-1">
-                        <Feather name="image" size={18} color="#64748b" />
-                      </View>
-                      <Text className="text-[10px] font-bold text-slate-400 uppercase tracking-wider">
-                        Original
-                      </Text>
-                    </View>
-
-                    <View className="px-3 items-center">
-                      <View className="w-6 h-6 rounded-full bg-emerald-50 border border-emerald-100 items-center justify-center">
-                        <Feather name="arrow-right" size={12} color="#059669" />
-                      </View>
-                    </View>
-
-                    <View className="flex-1 items-center py-2 px-1 relative">
-                      <View className="w-10 h-10 bg-emerald-50 rounded-lg items-center justify-center mb-1 overflow-hidden relative">
-                        <View className="absolute inset-0 flex-row flex-wrap">
-                          {Array.from({ length: 4 }).map((_, i) => (
-                            <View key={i} className="w-5 h-5 flex-row">
-                              <View
-                                className={`w-2.5 h-2.5 ${i % 2 === 0 ? "bg-slate-50" : "bg-slate-100/80"}`}
-                              />
-                              <View
-                                className={`w-2.5 h-2.5 ${i % 2 === 0 ? "bg-slate-100/80" : "bg-slate-50"}`}
-                              />
-                            </View>
-                          ))}
-                        </View>
+                  <View className="flex-row w-full space-x-3 gap-2 mt-2">
+                    <Animated.View style={animatedGalleryBtn} className="flex-1">
+                      <Pressable
+                        onPress={handleSelectFromGallery}
+                        disabled={status === "processing"}
+                        onPressIn={() => {
+                          galleryScale.value = withSpring(0.97);
+                        }}
+                        onPressOut={() => {
+                          galleryScale.value = withSpring(1);
+                        }}
+                        className={`bg-emerald-500 py-3.5 px-3 rounded-2xl flex-row items-center justify-center shadow-md shadow-emerald-500/10 active:bg-emerald-600 ${
+                          status === "processing" ? "opacity-50" : ""
+                        }`}
+                      >
                         <Feather
-                          name="user"
-                          size={18}
-                          color="#059669"
-                          className="z-10"
+                          name="image"
+                          size={16}
+                          color="white"
+                          className="mr-2"
                         />
-                      </View>
-                      <Text className="text-[10px] font-bold text-emerald-600 uppercase tracking-wider">
-                        No BG
-                      </Text>
-                    </View>
+                        <Text className="text-white text-[13px] font-extrabold tracking-wide text-center">
+                          Select Gallery
+                        </Text>
+                      </Pressable>
+                    </Animated.View>
+
+                    <Animated.View style={animatedCameraBtn} className="flex-1">
+                      <Pressable
+                        onPress={handleOpenCamera}
+                        disabled={status === "processing"}
+                        onPressIn={() => {
+                          cameraScale.value = withSpring(0.97);
+                        }}
+                        onPressOut={() => {
+                          cameraScale.value = withSpring(1);
+                        }}
+                        className={`border border-emerald-500 bg-white py-3.5 px-3 rounded-2xl flex-row items-center justify-center active:bg-slate-50/50 ${
+                          status === "processing" ? "opacity-50" : ""
+                        }`}
+                      >
+                        <Feather
+                          name="camera"
+                          size={16}
+                          color="#059669"
+                          className="mr-2"
+                        />
+                        <Text className="text-emerald-600 text-[13px] font-extrabold tracking-wide text-center">
+                          Open Camera
+                        </Text>
+                      </Pressable>
+                    </Animated.View>
                   </View>
                 </>
               )}
             </View>
-          </View>
-
-          <View className="flex-row w-full max-w-md mx-auto mt-6 space-x-3 px-1 gap-2">
-            <Animated.View style={animatedGalleryBtn} className="flex-1">
-              <Pressable
-                onPress={handleSelectFromGallery}
-                disabled={status === "processing"}
-                onPressIn={() => {
-                  galleryScale.value = withSpring(0.97);
-                }}
-                onPressOut={() => {
-                  galleryScale.value = withSpring(1);
-                }}
-                className={`bg-emerald-500 py-3.5 px-3 rounded-2xl flex-row items-center justify-center shadow-md shadow-emerald-500/10 active:bg-emerald-600 ${
-                  status === "processing" ? "opacity-50" : ""
-                }`}
-              >
-                <Feather
-                  name="image"
-                  size={16}
-                  color="white"
-                  className="mr-2"
-                />
-                <Text className="text-white text-[13px] font-extrabold tracking-wide text-center">
-                  Select Gallery
-                </Text>
-              </Pressable>
-            </Animated.View>
-
-            <Animated.View style={animatedCameraBtn} className="flex-1">
-              <Pressable
-                onPress={handleOpenCamera}
-                disabled={status === "processing"}
-                onPressIn={() => {
-                  cameraScale.value = withSpring(0.97);
-                }}
-                onPressOut={() => {
-                  cameraScale.value = withSpring(1);
-                }}
-                className={`border border-emerald-500 bg-white py-3.5 px-3 rounded-2xl flex-row items-center justify-center active:bg-slate-50/50 ${
-                  status === "processing" ? "opacity-50" : ""
-                }`}
-              >
-                <Feather
-                  name="camera"
-                  size={16}
-                  color="#059669"
-                  className="mr-2"
-                />
-                <Text className="text-emerald-600 text-[13px] font-extrabold tracking-wide text-center">
-                  Open Camera
-                </Text>
-              </Pressable>
-            </Animated.View>
           </View>
         </View>
       </ScrollView>
