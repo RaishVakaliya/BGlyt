@@ -89,14 +89,21 @@ async def remove_background(file: UploadFile = File(...)):
 
         logger.info(f"Processing background removal for file: {file.filename}")
         result = model.remove_background(temp_input_path)
-        result.save(output_path)
+        result = result.convert("RGBA")
+        from PIL import Image
+        white_bg = Image.new("RGBA", result.size, (255, 255, 255, 0))
+        white_bg.paste(result, (0, 0), result)
+        white_bg.save(output_path, "PNG")
         logger.info(f"Background removal success. Output saved to {output_path}")
 
-        return FileResponse(
-            path=output_path,
-            media_type="image/png",
-            filename=f"no_bg_{os.path.splitext(file.filename or 'image')[0]}.png"
-        )
+        import base64
+        with open(output_path, "rb") as image_file:
+            encoded_string = base64.b64encode(image_file.read()).decode("utf-8")
+
+        return {
+            "success": True,
+            "image": f"data:image/png;base64,{encoded_string}"
+        }
 
     except Exception as e:
         logger.error(f"Error during background removal: {e}")

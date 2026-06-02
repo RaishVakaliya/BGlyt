@@ -10,12 +10,14 @@
     "newArchEnabled": true,
     "ios": {
       "supportsTablet": false,
+      "bundleIdentifier": "com.raishvakaliya.bglyt",
       "infoPlist": {
         "NSPhotoLibraryUsageDescription": "BGlyt needs access to your photo library to select images for background removal.",
         "NSCameraUsageDescription": "BGlyt needs access to your camera to capture images for background removal."
       }
     },
     "android": {
+      "package": "com.raishvakaliya.bglyt",
       "adaptiveIcon": {
         "backgroundColor": "#ffffff",
         "foregroundImage": "./assets/images/android-icon-foreground.png",

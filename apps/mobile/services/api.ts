@@ -1,4 +1,5 @@
 import axios from 'axios';
+import { Platform } from 'react-native';
 
 const BASE_URL = process.env.EXPO_PUBLIC_API_URL ?? 'http://localhost:8000';
 
@@ -19,7 +20,17 @@ api.interceptors.response.use(
   (response) => response,
   (error) => {
     const status = error.response?.status;
-    const message = error.response?.data?.detail ?? error.response?.data?.message ?? error.message;
+    let message = error.response?.data?.detail ?? error.response?.data?.message ?? error.message;
+
+    if (typeof message === 'object' && message !== null) {
+      if (Array.isArray(message)) {
+        message = message
+          .map((err: any) => `${err.loc ? err.loc.join('.') : 'field'}: ${err.msg}`)
+          .join(', ');
+      } else {
+        message = JSON.stringify(message);
+      }
+    }
 
     if (status === 401) {
       console.warn('[BGlyt API] 401 Unauthorized');
@@ -49,21 +60,25 @@ export const removeBackground = async (
   const type = mimeType || 'image/jpeg';
   const name = fileName || 'upload.jpg';
   
-  formData.append('file', {
-    uri: imageUri,
-    name: name,
-    type: type,
-  } as any);
+  if (Platform.OS === 'web') {
+    const res = await fetch(imageUri);
+    const blob = await res.blob();
+    formData.append('file', blob, name);
+  } else {
+    formData.append('file', {
+      uri: imageUri,
+      name: name,
+      type: type,
+    } as any);
+  }
 
   const response = await api.post('/api/remove-background', formData, {
     headers: {
       'Content-Type': 'multipart/form-data',
     },
-    responseType: 'arraybuffer',
   });
 
-  const base64 = arrayBufferToBase64(response.data);
-  return `data:image/png;base64,${base64}`;
+  return response.data.image;
 };
 
 export default api;
