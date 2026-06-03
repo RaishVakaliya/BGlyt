@@ -82,6 +82,8 @@ async def remove_background(file: UploadFile = File(...)):
     output_filename = f"out_{uuid.uuid4().hex}.png"
     output_path = os.path.join(OUTPUTS_DIR, output_filename)
 
+    os.makedirs(OUTPUTS_DIR, exist_ok=True)
+
     try:
         with open(temp_input_path, "wb") as buffer:
             while chunk := await file.read(1024 * 1024):
@@ -113,11 +115,12 @@ async def remove_background(file: UploadFile = File(...)):
         )
 
     finally:
-        if os.path.exists(temp_input_path):
-            try:
-                os.remove(temp_input_path)
-            except Exception as cleanup_err:
-                logger.error(f"Failed to remove temporary file {temp_input_path}: {cleanup_err}")
+        for p in (temp_input_path, output_path):
+            if os.path.exists(p):
+                try:
+                    os.remove(p)
+                except Exception as cleanup_err:
+                    logger.error(f"Failed to remove temporary file {p}: {cleanup_err}")
 
 @app.get("/api/health")
 async def health():

@@ -2,25 +2,105 @@
 
 :root {
   --background: #ffffff;
-  --foreground: #171717;
+  --foreground: #0f172a;
 }
 
 @theme inline {
   --color-background: var(--background);
   --color-foreground: var(--foreground);
-  --font-sans: var(--font-geist-sans);
-  --font-mono: var(--font-geist-mono);
-}
-
-@media (prefers-color-scheme: dark) {
-  :root {
-    --background: #0a0a0a;
-    --foreground: #ededed;
-  }
+  --font-sans: var(--font-inter);
 }
 
 body {
-  background: var(--background);
+  background: #f8fafc;
   color: var(--foreground);
-  font-family: Arial, Helvetica, sans-serif;
+  font-family: var(--font-inter), Arial, Helvetica, sans-serif;
+  overflow-x: hidden;
 }
+
+/* Custom CSS-based Checkerboard Pattern */
+.checkerboard {
+  background-image: linear-gradient(45deg, rgba(226, 232, 240, 0.4) 25%, transparent 25%),
+    linear-gradient(-45deg, rgba(226, 232, 240, 0.4) 25%, transparent 25%),
+    linear-gradient(45deg, transparent 75%, rgba(226, 232, 240, 0.4) 75%),
+    linear-gradient(-45deg, transparent 75%, rgba(226, 232, 240, 0.4) 75%);
+  background-size: 20px 20px;
+  background-position: 0 0, 0 10px, 10px -10px, -10px 0px;
+  background-color: #f8fafc;
+}
+
+/* Micro-animations to match Mobile App Reanimated styles */
+@keyframes float {
+  0%, 100% {
+    transform: translateY(0px);
+  }
+  50% {
+    transform: translateY(-8px);
+  }
+}
+
+@keyframes pulse-subtle {
+  0%, 100% {
+    transform: scale(1);
+  }
+  50% {
+    transform: scale(1.05);
+  }
+}
+
+@keyframes slideDown {
+  from {
+    opacity: 0;
+    transform: translateY(-12px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+.animate-float-icon {
+  animation: float 3.6s ease-in-out infinite;
+}
+
+.animate-pulse-subtle {
+  animation: pulse-subtle 3s ease-in-out infinite;
+}
+
+.animate-slide-down {
+  animation: slideDown 0.28s cubic-bezier(0.16, 1, 0.3, 1) forwards;
+}
+
+/* Custom Premium UI details */
+.glassmorphic-card {
+  background: rgba(255, 255, 255, 0.85);
+  backdrop-filter: blur(12px);
+  -webkit-backdrop-filter: blur(12px);
+}
+
+.no-scrollbar::-webkit-scrollbar {
+  display: none;
+}
+
+.no-scrollbar {
+  -ms-overflow-style: none;
+  scrollbar-width: none;
+}
+
+/* Collapsible Height & Fade Animations for Specs Panel */
+.collapsible-wrapper {
+  max-height: 0;
+  opacity: 0;
+  overflow: hidden;
+  transition: max-height 0.35s cubic-bezier(0.16, 1, 0.3, 1), opacity 0.25s ease, margin-top 0.35s ease;
+  width: 100%;
+  margin-top: 0;
+}
+
+.collapsible-wrapper.open {
+  max-height: 500px;
+  opacity: 1;
+  margin-top: 1.5rem; /* Elegant spacious gap between image and specifications */
+}
+
+
