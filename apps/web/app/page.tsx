@@ -205,7 +205,9 @@ export default function Home() {
       const res = await fetch(sourceImage.uri);
       const blob = await res.blob();
 
-      const workerBlob = new Blob([workerCode], { type: "application/javascript" });
+      const workerBlob = new Blob([workerCode], {
+        type: "application/javascript",
+      });
       const workerUrl = URL.createObjectURL(workerBlob);
       const worker = new Worker(workerUrl);
 
