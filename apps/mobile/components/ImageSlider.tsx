@@ -1,4 +1,4 @@
-import React, { useRef, useState } from "react";
+import React, { useState } from "react";
 import { View } from "react-native";
 import { Image } from "expo-image";
 import { Feather } from "@expo/vector-icons";
@@ -12,20 +12,20 @@ export interface ImageSliderProps {
 
 export const ImageSlider = React.memo(({ sourceImage, result }: ImageSliderProps) => {
   const [sliderPosition, setSliderPosition] = useState(0.5);
-  const containerWidth = useRef(0);
+  const [containerWidth, setContainerWidth] = useState(0);
 
   const handleTouch = (event: any) => {
     const nativeEvent = event.nativeEvent;
-    if (containerWidth.current > 0) {
+    if (containerWidth > 0) {
       const x = nativeEvent.locationX;
-      setSliderPosition(Math.max(0, Math.min(1, x / containerWidth.current)));
+      setSliderPosition(Math.max(0, Math.min(1, x / containerWidth)));
     }
   };
 
   return (
     <View
       onLayout={(e) => {
-        containerWidth.current = e.nativeEvent.layout.width;
+        setContainerWidth(e.nativeEvent.layout.width);
       }}
       onStartShouldSetResponder={() => true}
       onResponderMove={handleTouch}
@@ -57,7 +57,7 @@ export const ImageSlider = React.memo(({ sourceImage, result }: ImageSliderProps
         <Image
           source={result.resultUri}
           style={{
-            width: containerWidth.current || "100%",
+            width: containerWidth || "100%",
             height: "100%",
           }}
           contentFit="contain"

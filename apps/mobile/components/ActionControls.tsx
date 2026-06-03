@@ -6,7 +6,6 @@ export interface ActionControlsProps {
   isSaving: boolean;
   showMetadata: boolean;
   onDownload: () => void;
-  onShare: () => void;
   onToggleMetadata: () => void;
   onReset: () => void;
 }
@@ -15,7 +14,6 @@ export const ActionControls = React.memo(({
   isSaving,
   showMetadata,
   onDownload,
-  onShare,
   onToggleMetadata,
   onReset,
 }: ActionControlsProps) => {
@@ -38,20 +36,6 @@ export const ActionControls = React.memo(({
           )}
           <Text className="text-white text-[13px] font-extrabold tracking-wide text-center">
             {isSaving ? "Saving..." : "Download"}
-          </Text>
-        </Pressable>
-
-        <Pressable
-          onPress={onShare}
-          accessible={true}
-          accessibilityRole="button"
-          accessibilityLabel="Share image"
-          accessibilityHint="Opens system or browser sharing screens to export your transparent PNG."
-          className="flex-1 border border-emerald-500 bg-white py-3.5 px-3 rounded-2xl flex-row items-center justify-center active:bg-slate-50 active:scale-[0.98] transition-all"
-        >
-          <Feather name="share-2" size={16} color="#059669" className="mr-2" />
-          <Text className="text-emerald-600 text-[13px] font-extrabold tracking-wide text-center">
-            Share
           </Text>
         </Pressable>
 

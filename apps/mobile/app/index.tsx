@@ -116,62 +116,6 @@ export default function HomeScreen() {
     }
   }, [result, isSaving]);
 
-  const handleShare = useCallback(async () => {
-    if (!result) return;
-    try {
-      if (Platform.OS === "web") {
-        if (navigator.share) {
-          const res = await fetch(result.resultUri);
-          const blob = await res.blob();
-          const file = new File([blob], `bglyt_${Date.now()}.png`, {
-            type: "image/png",
-          });
-
-          await navigator.share({
-            files: [file],
-            title: "BGlyt Background Removal",
-            text: "Check out this background-removed image by BGlyt!",
-          });
-        } else {
-          Alert.alert(
-            "Sharing Unsupported",
-            "Your browser does not support native sharing. Please use the Download button to save your transparent PNG.",
-          );
-        }
-        return;
-      }
-
-      const tempPath = `${FileSystem.cacheDirectory || FileSystem.documentDirectory}bglyt_share_${Date.now()}.png`;
-      const base64Data = result.resultUri;
-      const base64Code = base64Data.includes("base64,")
-        ? base64Data.split("base64,")[1]
-        : base64Data;
-
-      await FileSystem.writeAsStringAsync(tempPath, base64Code, {
-        encoding: FileSystem.EncodingType.Base64,
-      });
-
-      if (await Sharing.isAvailableAsync()) {
-        await Sharing.shareAsync(tempPath, {
-          mimeType: "image/png",
-          dialogTitle: "Share your transparent image",
-          UTI: "public.png",
-        });
-      } else {
-        Alert.alert(
-          "Sharing Unavailable",
-          "Sharing is not supported on this platform.",
-        );
-      }
-    } catch (err: any) {
-      console.error("Error sharing transparent PNG:", err);
-      Alert.alert(
-        "Share Failed",
-        err?.message || "An unexpected error occurred while sharing the image.",
-      );
-    }
-  }, [result]);
-
   const handleSelectFromGallery = useCallback(async () => {
     try {
       setError(null);
@@ -416,7 +360,6 @@ export default function HomeScreen() {
                     isSaving={isSaving}
                     showMetadata={showMetadata}
                     onDownload={handleDownload}
-                    onShare={handleShare}
                     onToggleMetadata={() => setShowMetadata(!showMetadata)}
                     onReset={handleReset}
                   />
@@ -463,17 +406,20 @@ export default function HomeScreen() {
                     </Pressable>
 
                     <Pressable
-                      onPress={() => setShowMetadata(!showMetadata)}
+                      onPress={() => {
+                        if (isProcessing) return;
+                        setShowMetadata(!showMetadata);
+                      }}
                       disabled={isProcessing}
                       accessible={true}
                       accessibilityRole="button"
                       accessibilityLabel="Toggle file specifications"
                       accessibilityHint="Displays metadata including file name, size, dimensions, and type."
-                      className={`w-12 h-12 rounded-2xl flex items-center justify-center active:scale-[0.95] transition-all ${
+                      className={`w-12 h-12 rounded-2xl flex items-center justify-center transition-all ${
                         showMetadata
                           ? "bg-emerald-500 shadow-md shadow-emerald-500/10"
                           : "bg-emerald-50 border border-emerald-100"
-                      }`}
+                      } ${isProcessing ? "opacity-50 pointer-events-none" : "active:scale-[0.95]"}`}
                     >
                       <Feather
                         name="info"
