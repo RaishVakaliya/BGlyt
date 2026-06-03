@@ -1,5 +1,7 @@
 import axios from 'axios';
 import { Platform } from 'react-native';
+import * as FileSystem from 'expo-file-system/legacy';
+import { FileSystemUploadType } from 'expo-file-system/legacy';
 
 const BASE_URL = process.env.EXPO_PUBLIC_API_URL ?? 'http://localhost:8000';
 
@@ -50,35 +52,64 @@ function arrayBufferToBase64(buffer: ArrayBuffer): string {
   return btoa(binary);
 }
 
+
 export const removeBackground = async (
   imageUri: string,
   mimeType?: string,
   fileName?: string
 ): Promise<string> => {
-  const formData = new FormData();
-  
   const type = mimeType || 'image/jpeg';
   const name = fileName || 'upload.jpg';
   
   if (Platform.OS === 'web') {
+    const formData = new FormData();
     const res = await fetch(imageUri);
     const blob = await res.blob();
     formData.append('file', blob, name);
+
+    const response = await api.post('/api/remove-background', formData, {
+      headers: {
+        'Content-Type': 'multipart/form-data',
+      },
+    });
+
+    return response.data.image;
   } else {
-    formData.append('file', {
-      uri: imageUri,
-      name: name,
-      type: type,
-    } as any);
+    const uploadResult = await FileSystem.uploadAsync(
+      `${BASE_URL}/api/remove-background`,
+      imageUri,
+      {
+        fieldName: 'file',
+        httpMethod: 'POST',
+        uploadType: FileSystemUploadType.MULTIPART,
+        mimeType: type,
+        headers: {
+          Accept: 'application/json',
+        },
+      }
+    );
+
+    if (uploadResult.status < 200 || uploadResult.status >= 300) {
+      let errMsg = 'Failed to remove background.';
+      try {
+        const errData = JSON.parse(uploadResult.body);
+        errMsg = errData?.detail ?? errData?.message ?? errMsg;
+        if (Array.isArray(errMsg)) {
+          errMsg = errMsg
+            .map((err: any) => `${err.loc ? err.loc.join('.') : 'field'}: ${err.msg}`)
+            .join(', ');
+        }
+      } catch (_) {
+        if (uploadResult.body) {
+          errMsg = uploadResult.body;
+        }
+      }
+      throw new Error(errMsg);
+    }
+
+    const data = JSON.parse(uploadResult.body);
+    return data.image;
   }
-
-  const response = await api.post('/api/remove-background', formData, {
-    headers: {
-      'Content-Type': 'multipart/form-data',
-    },
-  });
-
-  return response.data.image;
 };
 
 export default api;
