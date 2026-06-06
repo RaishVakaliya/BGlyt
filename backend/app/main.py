@@ -17,9 +17,11 @@ os.makedirs(OUTPUTS_DIR, exist_ok=True)
 @asynccontextmanager
 async def lifespan(app: FastAPI):
     global session
-    logger.info("Initializing rembg session...")
+    logger.info("Initializing rembg session with silueta model...")
     try:
-        session = new_session("u2net")
+        # Set thread limits via env variable so rembg configures onnxruntime correctly
+        os.environ["OMP_NUM_THREADS"] = "1"
+        session = new_session("silueta")
         logger.info("Rembg session initialized successfully.")
     except Exception as e:
         logger.error(f"Failed to initialize rembg session: {e}")
