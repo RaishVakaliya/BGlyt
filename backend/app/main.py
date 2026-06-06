@@ -5,25 +5,25 @@ from contextlib import asynccontextmanager
 from fastapi import FastAPI, UploadFile, File, HTTPException, status
 from fastapi.responses import FileResponse
 from fastapi.middleware.cors import CORSMiddleware
-from withoutbg import WithoutBG
+from rembg import new_session, remove
 
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger("bglyt-backend")
 
-model = None
+session = None
 OUTPUTS_DIR = os.path.join(os.path.dirname(os.path.dirname(os.path.abspath(__file__))), "outputs")
 os.makedirs(OUTPUTS_DIR, exist_ok=True)
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
-    global model
-    logger.info("Initializing WithoutBG opensource model...")
+    global session
+    logger.info("Initializing rembg session...")
     try:
-        model = WithoutBG.opensource()
-        logger.info("Model initialized successfully.")
+        session = new_session("u2net")
+        logger.info("Rembg session initialized successfully.")
     except Exception as e:
-        logger.error(f"Failed to initialize model: {e}")
-        raise RuntimeError(f"Failed to load WithoutBG model: {e}")
+        logger.error(f"Failed to initialize rembg session: {e}")
+        raise RuntimeError(f"Failed to load rembg session: {e}")
     yield
     logger.info("Shutting down backend services.")
 
@@ -52,8 +52,8 @@ ALLOWED_MIME_TYPES = {
 
 @app.post("/api/remove-background")
 async def remove_background(file: UploadFile = File(...)):
-    global model
-    if model is None:
+    global session
+    if session is None:
         raise HTTPException(
             status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
             detail="Background removal engine is not initialized yet. Please try again shortly."
@@ -90,9 +90,10 @@ async def remove_background(file: UploadFile = File(...)):
                 buffer.write(chunk)
 
         logger.info(f"Processing background removal for file: {file.filename}")
-        result = model.remove_background(temp_input_path)
-        result = result.convert("RGBA")
         from PIL import Image
+        input_image = Image.open(temp_input_path)
+        result = remove(input_image, session=session)
+        result = result.convert("RGBA")
         white_bg = Image.new("RGBA", result.size, (255, 255, 255, 0))
         white_bg.paste(result, (0, 0), result)
         white_bg.save(output_path, "PNG")
@@ -126,5 +127,5 @@ async def remove_background(file: UploadFile = File(...)):
 async def health():
     return {
         "status": "healthy",
-        "engine_ready": model is not None
+        "engine_ready": session is not None
     }
