@@ -11,27 +11,42 @@ logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger("bglyt-backend")
 
 session = None
-OUTPUTS_DIR = os.path.join(os.path.dirname(os.path.dirname(os.path.abspath(__file__))), "outputs")
+
+if os.path.exists("/tmp"):
+    OUTPUTS_DIR = "/tmp/outputs"
+else:
+    OUTPUTS_DIR = os.path.join(os.path.dirname(os.path.dirname(os.path.abspath(__file__))), "outputs")
+
 os.makedirs(OUTPUTS_DIR, exist_ok=True)
+
+def get_session():
+    global session
+    if session is None:
+        logger.info("Initializing rembg session with silueta model...")
+        try:
+            os.environ["OMP_NUM_THREADS"] = "1"
+            os.environ["MKL_NUM_THREADS"] = "1"
+            if os.path.exists("/tmp"):
+                os.environ["U2NET_HOME"] = "/tmp/.u2net"
+            session = new_session("silueta")
+            logger.info("Rembg session initialized successfully.")
+        except Exception as e:
+            logger.error(f"Failed to initialize rembg session: {e}")
+            raise RuntimeError(f"Failed to load rembg session: {e}")
+    return session
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
-    global session
-    logger.info("Initializing rembg session with silueta model...")
     try:
-        # Set thread limits via env variable so rembg configures onnxruntime correctly
-        os.environ["OMP_NUM_THREADS"] = "1"
-        session = new_session("silueta")
-        logger.info("Rembg session initialized successfully.")
+        get_session()
     except Exception as e:
-        logger.error(f"Failed to initialize rembg session: {e}")
-        raise RuntimeError(f"Failed to load rembg session: {e}")
+        logger.error(f"Lifespan initialization error: {e}")
     yield
     logger.info("Shutting down backend services.")
 
 app = FastAPI(
     title="BGlyt Background Removal API",
-    description="FastAPI service utilizing WithoutBG to remove background from images.",
+    description="FastAPI service utilizing Rembg to remove background from images.",
     version="1.0.0",
     lifespan=lifespan
 )
@@ -62,11 +77,12 @@ ALLOWED_MIME_TYPES = {
 
 @app.post("/api/remove-background")
 async def remove_background(file: UploadFile = File(...)):
-    global session
-    if session is None:
+    try:
+        active_session = get_session()
+    except Exception as e:
         raise HTTPException(
             status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
-            detail="Background removal engine is not initialized yet. Please try again shortly."
+            detail=f"Background removal engine initialization failed: {str(e)}"
         )
 
     if file.content_type not in ALLOWED_MIME_TYPES:
@@ -102,7 +118,7 @@ async def remove_background(file: UploadFile = File(...)):
         logger.info(f"Processing background removal for file: {file.filename}")
         from PIL import Image
         input_image = Image.open(temp_input_path)
-        result = remove(input_image, session=session)
+        result = remove(input_image, session=active_session)
         result = result.convert("RGBA")
         white_bg = Image.new("RGBA", result.size, (255, 255, 255, 0))
         white_bg.paste(result, (0, 0), result)
