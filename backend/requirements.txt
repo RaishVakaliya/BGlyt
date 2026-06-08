@@ -1,5 +1,7 @@
 fastapi==0.136.3
 python-multipart==0.0.30
 rembg==2.0.60
+onnxruntime==1.23.2
 opencv-python-headless==4.10.0.84
 pillow==12.2.0
+uvicorn==0.48.0
