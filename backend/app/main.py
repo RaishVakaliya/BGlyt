@@ -24,8 +24,6 @@ def get_session():
     if session is None:
         logger.info("Initializing rembg session with silueta model...")
         try:
-            os.environ["OMP_NUM_THREADS"] = "1"
-            os.environ["MKL_NUM_THREADS"] = "1"
             if os.path.exists("/tmp"):
                 os.environ["U2NET_HOME"] = "/tmp/.u2net"
             session = new_session("silueta")
