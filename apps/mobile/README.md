@@ -18,7 +18,7 @@
 
 - Python
 - FastAPI
-- WithoutBG Library
+- rembg Library
 - React Native & Expo
 - TypeScript
 - Zustand

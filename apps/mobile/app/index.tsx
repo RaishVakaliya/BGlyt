@@ -142,7 +142,7 @@ export default function HomeScreen() {
       const pickerResult = await ImagePicker.launchImageLibraryAsync({
         mediaTypes: ImagePicker.MediaTypeOptions.Images,
         allowsEditing: true,
-        quality: 1,
+        quality: 0.8,
         allowsMultipleSelection: false,
       });
 
@@ -221,7 +221,7 @@ export default function HomeScreen() {
       const cameraResult = await ImagePicker.launchCameraAsync({
         mediaTypes: ImagePicker.MediaTypeOptions.Images,
         allowsEditing: true,
-        quality: 1,
+        quality: 0.8,
       });
 
       if (

@@ -16,7 +16,7 @@ export const metadata: Metadata = {
     "erase background",
     "transparent background",
     "PNG transparent export",
-    "WithoutBG AI",
+    "Rembg AI",
     "free bg remover",
     "high-fidelity image cutout"
   ],
