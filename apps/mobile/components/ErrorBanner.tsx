@@ -3,12 +3,23 @@ import { View, Text, Pressable } from "react-native";
 import { Feather } from "@expo/vector-icons";
 
 export interface ErrorBannerProps {
+  title?: string;
   message: string | null;
   onDismiss: () => void;
 }
 
-export const ErrorBanner = React.memo(({ message, onDismiss }: ErrorBannerProps) => {
+export const ErrorBanner = React.memo(({ title, message, onDismiss }: ErrorBannerProps) => {
   if (!message) return null;
+
+  const displayTitle = title || (
+    message.toLowerCase().includes("internet") || 
+    message.toLowerCase().includes("network") || 
+    message.toLowerCase().includes("connection") ||
+    message.toLowerCase().includes("host") ||
+    message.toLowerCase().includes("address")
+      ? "Network Error"
+      : "Processing Failed"
+  );
 
   return (
     <View
@@ -22,7 +33,7 @@ export const ErrorBanner = React.memo(({ message, onDismiss }: ErrorBannerProps)
         </View>
         <View className="flex-1">
           <Text className="text-xs font-bold text-red-800">
-            Image Selection Failed
+            {displayTitle}
           </Text>
           <Text className="text-[11px] text-red-600 mt-0.5 leading-relaxed">
             {message}

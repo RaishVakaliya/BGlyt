@@ -41,7 +41,7 @@ export const UploadCard = React.memo(
         -1,
         true,
       );
-    }, []);
+    }, [floatValue, pulseValue]);
 
     const animatedFloatIcon = useAnimatedStyle(() => ({
       transform: [

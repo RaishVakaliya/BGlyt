@@ -2,6 +2,7 @@ import { useMutation } from '@tanstack/react-query';
 import { removeBackground } from '../services/api';
 import { useBGRemovalStore } from '../store';
 import { PickedImage } from '../types';
+import { sanitizeError } from '../services/errorSanitizer';
 
 export default function useBackgroundRemoval() {
   const { setStatus, setResult, setError } = useBGRemovalStore();
@@ -26,7 +27,7 @@ export default function useBackgroundRemoval() {
       setStatus('done');
     },
     onError: (error: any) => {
-      const errMsg = error?.message || 'Failed to remove background image.';
+      const errMsg = sanitizeError(error);
       setError(errMsg);
       setStatus('error');
     },

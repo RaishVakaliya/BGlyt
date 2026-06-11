@@ -1,15 +1,32 @@
-import axios from 'axios';
-import { Platform } from 'react-native';
-import * as FileSystem from 'expo-file-system/legacy';
-import { FileSystemUploadType } from 'expo-file-system/legacy';
+import axios from "axios";
+import { Platform } from "react-native";
+import * as FileSystem from "expo-file-system/legacy";
+import { FileSystemUploadType } from "expo-file-system/legacy";
+import * as Network from "expo-network";
+import { sanitizeError } from "./errorSanitizer";
 
-const BASE_URL = process.env.EXPO_PUBLIC_API_URL ?? 'http://localhost:8000';
+export const checkConnectivity = async (): Promise<void> => {
+  try {
+    const networkState = await Network.getNetworkStateAsync();
+    if (networkState.isConnected === false) {
+      throw new Error(
+        "No internet connection. Please connect to the internet and try again.",
+      );
+    }
+  } catch (err: any) {
+    if (err?.message === "No internet connection. Please connect to the internet and try again.") {
+      throw err;
+    }
+  }
+};
+
+const BASE_URL = process.env.EXPO_PUBLIC_API_URL ?? "http://localhost:8000";
 
 const api = axios.create({
   baseURL: BASE_URL,
   timeout: 120_000,
   headers: {
-    Accept: 'application/json',
+    Accept: "application/json",
   },
 });
 
@@ -22,28 +39,34 @@ api.interceptors.response.use(
   (response) => response,
   (error) => {
     const status = error.response?.status;
-    let message = error.response?.data?.detail ?? error.response?.data?.message ?? error.message;
+    let message =
+      error.response?.data?.detail ??
+      error.response?.data?.message ??
+      error.message;
 
-    if (typeof message === 'object' && message !== null) {
+    if (typeof message === "object" && message !== null) {
       if (Array.isArray(message)) {
         message = message
-          .map((err: any) => `${err.loc ? err.loc.join('.') : 'field'}: ${err.msg}`)
-          .join(', ');
+          .map(
+            (err: any) =>
+              `${err.loc ? err.loc.join(".") : "field"}: ${err.msg}`,
+          )
+          .join(", ");
       } else {
         message = JSON.stringify(message);
       }
     }
 
     if (status === 401) {
-      console.warn('[BGlyt API] 401 Unauthorized');
+      console.warn("[BGlyt API] 401 Unauthorized");
     }
 
-    return Promise.reject({ status, code: error.code ?? 'UNKNOWN', message });
+    return Promise.reject({ status, code: error.code ?? "UNKNOWN", message });
   },
 );
 
 function arrayBufferToBase64(buffer: ArrayBuffer): string {
-  let binary = '';
+  let binary = "";
   const bytes = new Uint8Array(buffer);
   const len = bytes.byteLength;
   for (let i = 0; i < len; i++) {
@@ -52,63 +75,72 @@ function arrayBufferToBase64(buffer: ArrayBuffer): string {
   return btoa(binary);
 }
 
-
 export const removeBackground = async (
   imageUri: string,
   mimeType?: string,
-  fileName?: string
+  fileName?: string,
 ): Promise<string> => {
-  const type = mimeType || 'image/jpeg';
-  const name = fileName || 'upload.jpg';
-  
-  if (Platform.OS === 'web') {
-    const formData = new FormData();
-    const res = await fetch(imageUri);
-    const blob = await res.blob();
-    formData.append('file', blob, name);
+  const type = mimeType || "image/jpeg";
+  const name = fileName || "upload.jpg";
 
-    const response = await api.post('/api/remove-background', formData, {
-      headers: {
-        'Content-Type': 'multipart/form-data',
-      },
-    });
+  try {
+    await checkConnectivity();
 
-    return response.data.image;
-  } else {
-    const uploadResult = await FileSystem.uploadAsync(
-      `${BASE_URL}/api/remove-background`,
-      imageUri,
-      {
-        fieldName: 'file',
-        httpMethod: 'POST',
-        uploadType: FileSystemUploadType.MULTIPART,
-        mimeType: type,
+    if (Platform.OS === "web") {
+      const formData = new FormData();
+      const res = await fetch(imageUri);
+      const blob = await res.blob();
+      formData.append("file", blob, name);
+
+      const response = await api.post("/api/remove-background", formData, {
         headers: {
-          Accept: 'application/json',
+          "Content-Type": "multipart/form-data",
         },
-      }
-    );
+      });
 
-    if (uploadResult.status < 200 || uploadResult.status >= 300) {
-      let errMsg = 'Failed to remove background.';
-      try {
-        const errData = JSON.parse(uploadResult.body);
-        errMsg = errData?.detail ?? errData?.message ?? errMsg;
-        if (Array.isArray(errMsg)) {
-          errMsg = errMsg
-            .map((err: any) => `${err.loc ? err.loc.join('.') : 'field'}: ${err.msg}`)
-            .join(', ');
+      return response.data.image;
+    } else {
+      const uploadResult = await FileSystem.uploadAsync(
+        `${BASE_URL}/api/remove-background`,
+        imageUri,
+        {
+          fieldName: "file",
+          httpMethod: "POST",
+          uploadType: FileSystemUploadType.MULTIPART,
+          mimeType: type,
+          headers: {
+            Accept: "application/json",
+          },
+        },
+      );
+
+      if (uploadResult.status < 200 || uploadResult.status >= 300) {
+        let errMsg = "Failed to remove background.";
+        try {
+          const errData = JSON.parse(uploadResult.body);
+          errMsg = errData?.detail ?? errData?.message ?? errMsg;
+          if (Array.isArray(errMsg)) {
+            errMsg = errMsg
+              .map(
+                (err: any) =>
+                  `${err.loc ? err.loc.join(".") : "field"}: ${err.msg}`,
+              )
+              .join(", ");
+          }
+        } catch (_) {
+          if (uploadResult.body) {
+            errMsg = uploadResult.body;
+          }
         }
-      } catch (_) {
-        if (uploadResult.body) {
-          errMsg = uploadResult.body;
-        }
+        throw new Error(errMsg);
       }
-      throw new Error(errMsg);
+
+      const data = JSON.parse(uploadResult.body);
+      return data.image;
     }
-
-    const data = JSON.parse(uploadResult.body);
-    return data.image;
+  } catch (error: any) {
+    const cleanMsg = sanitizeError(error);
+    throw new Error(cleanMsg);
   }
 };
 

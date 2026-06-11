@@ -1,20 +1,17 @@
-import React, { useEffect, useCallback } from "react";
+import React, { useCallback } from "react";
 import {
   Text,
   View,
   Pressable,
   ScrollView,
-  useWindowDimensions,
   ActivityIndicator,
   Alert,
   Platform,
 } from "react-native";
 import * as FileSystem from "expo-file-system/legacy";
 import * as MediaLibrary from "expo-media-library";
-import * as Sharing from "expo-sharing";
 import {
   SafeAreaView,
-  useSafeAreaInsets,
 } from "react-native-safe-area-context";
 import { StatusBar } from "expo-status-bar";
 import { Image } from "expo-image";
@@ -23,6 +20,7 @@ import * as ImagePicker from "expo-image-picker";
 
 import { useBGRemovalStore } from "../store";
 import { useBackgroundRemoval } from "../hooks";
+import { sanitizeError } from "../services/errorSanitizer";
 import {
   Checkerboard,
   ErrorBanner,
@@ -33,8 +31,6 @@ import {
 } from "../components";
 
 export default function HomeScreen() {
-  const { width } = useWindowDimensions();
-  const insets = useSafeAreaInsets();
   const [showMetadata, setShowMetadata] = React.useState(false);
 
   const {
@@ -188,9 +184,7 @@ export default function HomeScreen() {
         fileName: asset.fileName || "gallery_photo.jpg",
       });
     } catch (err: any) {
-      setError(
-        err?.message || "An unexpected error occurred while picking the image.",
-      );
+      setError(sanitizeError(err));
       setStatus("error");
     }
   }, [sourceImage, setSourceImage, setError, setStatus]);
@@ -266,15 +260,12 @@ export default function HomeScreen() {
         fileName: asset.fileName || "camera_photo.jpg",
       });
     } catch (err: any) {
-      setError(
-        err?.message ||
-          "An unexpected error occurred while launching the camera.",
-      );
+      setError(sanitizeError(err));
       setStatus("error");
     }
   }, [sourceImage, setSourceImage, setError, setStatus]);
 
-  const isTablet = width > 768;
+
 
   return (
     <SafeAreaView className="flex-1 bg-white" edges={["top", "left", "right"]}>
